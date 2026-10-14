@@ -10,25 +10,19 @@ function ratingClass(value) {
   return 'poor';
 }
 
-function miniGrid(episodes) {
-  return episodes.filter(e => e.rating).slice(-52).map(e =>
-    `<i class="mini-cell ${ratingClass(e.rating)}" title="S${e.season}E${e.episode}: ${e.rating}"></i>`
-  ).join('');
-}
-
 Promise.all(shows.map(id => fetch(`data/${id}.json`).then(r => r.json())))
   .then(data => {
     grid.innerHTML = data.map((show, index) => `
       <a class="series-card" style="--accent:${show.accent}" href="show.html?id=${show.id}" aria-label="Explore ${show.name}">
-        <div class="series-number">0${index + 1}</div>
+        <img class="series-image" src="assets/${show.id}.jpg" alt="${show.name} artwork">
         <div class="series-card-top">
           <div>
+            <span class="series-index">0${index + 1}</span>
             <p class="series-years">${show.years}</p>
             <h3>${show.name}</h3>
           </div>
           <span class="arrow">↗</span>
         </div>
-        <div class="mini-grid" aria-hidden="true">${miniGrid(show.episodes)}</div>
         <div class="series-stats">
           <span><b>${show.seasonCount}</b> seasons</span>
           <span><b>${show.episodeCount}</b> episodes</span>

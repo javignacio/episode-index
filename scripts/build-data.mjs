@@ -10,10 +10,11 @@ mkdirSync(cache, { recursive: true });
 mkdirSync(dataDir, { recursive: true });
 
 const shows = [
-  { id: 'house', imdbId: 'tt0412142', tvmazeId: 118, name: 'House', years: '2004–2012', accent: '#70dfad' },
+  { id: 'house', imdbId: 'tt0412142', tvmazeId: 118, name: 'House MD', years: '2004–2012', accent: '#70dfad' },
   { id: 'the-simpsons', imdbId: 'tt0096697', tvmazeId: 83, name: 'The Simpsons', years: '1989–', accent: '#ffd84d' },
-  { id: 'once-upon-a-time', imdbId: 'tt1843230', tvmazeId: 182, name: 'Once Upon a Time', years: '2011–2018', accent: '#a9b8ff' },
+  { id: 'once-upon-a-time', imdbId: 'tt1843230', tvmazeId: 111, name: 'Once Upon a Time', years: '2011–2018', accent: '#a9b8ff' },
 ];
+const extras = [{ showId: 'the-simpsons', imdbId: 'tt12294152', name: 'The Tracey Ullman Show shorts', years: '1987–1989' }];
 
 const sources = {
   episodes: 'https://datasets.imdbws.com/title.episode.tsv.gz',
@@ -46,7 +47,7 @@ const episodeFile = await download('episodes', sources.episodes);
 const ratingsFile = await download('ratings', sources.ratings);
 const basicsFile = await download('basics', sources.basics);
 
-const parentIds = new Set(shows.map(show => show.imdbId));
+const parentIds = new Set([...shows.map(show => show.imdbId), ...extras.map(extra => extra.imdbId)]);
 const episodes = new Map();
 await rows(episodeFile, row => {
   if (!parentIds.has(row.parentTconst) || row.seasonNumber === '\\N' || row.episodeNumber === '\\N') return;
@@ -83,8 +84,16 @@ for (const show of shows) {
   const summaries = new Map(tvmazeEpisodes.map(item => [`${item.season}-${item.number}`, cleanSummary(item.summary)]));
   const showEpisodes = [...episodes.values()]
     .filter(item => item.showImdbId === show.imdbId)
+    .filter(item => show.id !== 'the-simpsons' || !/^Episode #\d+\.\d+$/.test(item.title || ''))
     .map(item => ({ ...item, summary: summaries.get(`${item.season}-${item.episode}`) || '' }))
     .sort((a, b) => a.season - b.season || a.episode - b.episode);
+
+  const showExtras = extras.filter(extra => extra.showId === show.id).map(extra => ({
+    ...extra,
+    episodes: [...episodes.values()]
+      .filter(item => item.showImdbId === extra.imdbId)
+      .sort((a, b) => a.season - b.season || a.episode - b.episode),
+  }));
 
   const rated = showEpisodes.filter(item => Number.isFinite(item.rating));
   const average = rated.reduce((sum, item) => sum + item.rating, 0) / rated.length;
@@ -96,6 +105,7 @@ for (const show of shows) {
     seasonCount: Math.max(...showEpisodes.map(item => item.season)),
     best: { title: best.title, rating: best.rating, season: best.season, episode: best.episode },
     episodes: showEpisodes,
+    extras: showExtras,
   }));
   console.log(`${show.name}: ${showEpisodes.length} episodes`);
 }

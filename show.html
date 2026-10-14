@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Season-by-season IMDb episode ratings.">
-  <title>Series — Episode Index</title>
+  <title>TV Episode Ratings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -12,8 +12,8 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="index.html"><span class="brand-mark">EI</span><span>Episode Index</span></a>
-    <a class="back-link" href="index.html">← All series</a>
+    <a class="brand" href="index.html"><span class="brand-mark">TV</span><span>TV Episode Ratings</span></a>
+    <div class="header-actions"><span class="header-note">Episode ratings from IMDb</span><a class="back-link" href="index.html">← All series</a></div>
   </header>
 
   <main class="show-shell" id="show-main">
@@ -22,6 +22,10 @@
 
   <dialog class="episode-dialog" id="episode-dialog">
     <button class="dialog-close" aria-label="Close episode details">×</button>
+    <div class="dialog-nav">
+      <button id="episode-prev" aria-label="Previous episode">←</button>
+      <button id="episode-next" aria-label="Next episode">→</button>
+    </div>
     <div class="dialog-rating" id="dialog-rating"></div>
     <p class="eyebrow" id="dialog-code"></p>
     <h2 id="dialog-title"></h2>
