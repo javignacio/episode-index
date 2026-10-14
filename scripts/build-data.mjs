@@ -77,6 +77,34 @@ function cleanSummary(value = '') {
   return (value || '').replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&').trim();
 }
 
+async function traceyUllmanSummaries() {
+  const response = await fetch('https://www.simpsonsarchive.com/guides/tracey.ullman.html');
+  if (!response.ok) return [];
+  const html = await response.text();
+  const summaries = [];
+  const blocks = html.matchAll(/<B>([\s\S]*?MG\d+[\s\S]*?)<\/B><BR>([\s\S]*?)<P>/gi);
+  for (const block of blocks) {
+    const summary = cleanSummary(block[2])
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/First appearance[\s\S]*$/i, '')
+      .replace(/Beginning with this episode[\s\S]*$/i, '')
+      .trim();
+    if (summary) summaries.push(summary);
+  }
+  return summaries;
+}
+
+const traceySummaries = await traceyUllmanSummaries();
+const simpsonsSummaryFallbacks = new Map([
+  ['Stew Lies', "When a food-show host loses his appetite, Homer tries to restore it and leads them to Fat Tony's dangerously guarded secret stew recipe. Meanwhile, Bart starts repeating everything Lisa says."],
+  ['Full Heart, Empty Pool', 'Homer and Grampa invent Noodleball, an empty-pool sport that becomes a sensation, but success threatens their partnership when a company offers to take it professional.'],
+  ['Estranger Things', 'After Bart and Lisa stop watching Itchy & Scratchy together, their lives drift apart and lead to an unexpected reunion decades later.'],
+  ['Extreme Makeover: Homer Edition', 'After learning that Homer left the children with a doorbell camera as their babysitter, Marge imagines several very different versions of her husband.'],
+  ['Simpsley', 'In a noir-inspired story, Marge travels to Italy to bring Seymour Skinner home and becomes tempted by his wealthy lifestyle and his houseguest, Homer Simpsley.'],
+  ['Yellow Mirror', 'A defective lamp challenges Homer’s sense of reality, while an AI-powered tablet befriends Maggie and begins to control her.'],
+]);
+
 for (const show of shows) {
   const response = await fetch(`https://api.tvmaze.com/shows/${show.tvmazeId}/episodes?specials=1`);
   if (!response.ok) throw new Error(`TVmaze ${response.status} for ${show.name}`);
@@ -86,6 +114,7 @@ for (const show of shows) {
     .filter(item => item.showImdbId === show.imdbId)
     .filter(item => show.id !== 'the-simpsons' || !/^Episode #\d+\.\d+$/.test(item.title || ''))
     .map(item => ({ ...item, summary: summaries.get(`${item.season}-${item.episode}`) || '' }))
+    .map(item => show.id === 'the-simpsons' && !item.summary ? { ...item, summary: simpsonsSummaryFallbacks.get(item.title) || '' } : item)
     .sort((a, b) => a.season - b.season || a.episode - b.episode);
 
   const showExtras = extras.filter(extra => extra.showId === show.id).map(extra => ({
@@ -93,7 +122,7 @@ for (const show of shows) {
     episodes: [...episodes.values()]
       .filter(item => item.showImdbId === extra.imdbId)
       .sort((a, b) => a.season - b.season || a.episode - b.episode),
-  }));
+  })).map(extra => ({ ...extra, episodes: extra.episodes.map((episode, index) => ({ ...episode, summary: traceySummaries[index] || '' })) }));
 
   const rated = showEpisodes.filter(item => Number.isFinite(item.rating));
   const average = rated.reduce((sum, item) => sum + item.rating, 0) / rated.length;

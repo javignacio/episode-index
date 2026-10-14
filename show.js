@@ -70,8 +70,8 @@ function render(show) {
         <h1>${show.name}</h1></div>
       </div>
       <div class="show-highlights">
-        <div><span>Series average</span><b>${show.average}</b></div>
-        <button class="highlight-best" data-id="${show.episodes.find(ep => ep.season === show.best.season && ep.episode === show.best.episode)?.imdbId}"><span>Highest rated</span><b>${show.best.rating}</b><small>S${show.best.season} E${show.best.episode} · View episode</small></button>
+        <div><span>Series average</span><small aria-hidden="true">&nbsp;</small><b>${show.average}</b></div>
+        <button class="highlight-best" data-id="${show.episodes.find(ep => ep.season === show.best.season && ep.episode === show.best.episode)?.imdbId}"><span>Highest rated</span><small>S${show.best.season} E${show.best.episode} · View episode</small><b>${show.best.rating}</b></button>
       </div>
     </section>
     <section class="matrix-section">
