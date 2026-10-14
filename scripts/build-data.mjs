@@ -112,6 +112,35 @@ const simpsonsSummaryFallbacks = new Map([
   ['Yellow Mirror', 'A defective lamp challenges Homer’s sense of reality, while an AI-powered tablet befriends Maggie and begins to control her.'],
 ]);
 
+async function imdbPlotSummaries(ids) {
+  const summaries = new Map();
+  const headers = {
+    'content-type': 'application/json',
+    'user-agent': 'Mozilla/5.0',
+    'origin': 'https://www.imdb.com',
+    'referer': 'https://www.imdb.com/',
+    'x-imdb-client-name': 'imdb-web-next-localized',
+    'x-imdb-user-country': 'US',
+    'accept-language': 'en-US,en;q=0.9',
+  };
+  for (let offset = 0; offset < ids.length; offset += 25) {
+    const batch = ids.slice(offset, offset + 25);
+    const fields = batch.map((id, index) => `e${index}: title(id: "${id}") { id plots(first: 1) { edges { node { plotText { plainText } } } } }`).join('\n');
+    const response = await fetch('https://api.graphql.imdb.com/', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: `query { ${fields} }` }),
+    });
+    if (!response.ok) continue;
+    const payload = await response.json();
+    for (const value of Object.values(payload.data || {})) {
+      const summary = value?.plots?.edges?.[0]?.node?.plotText?.plainText?.trim();
+      if (value?.id && summary) summaries.set(value.id, summary);
+    }
+  }
+  return summaries;
+}
+
 for (const show of shows) {
   const response = await fetch(`https://api.tvmaze.com/shows/${show.tvmazeId}/episodes?specials=1`);
   if (!response.ok) throw new Error(`TVmaze ${response.status} for ${show.name}`);
@@ -119,13 +148,18 @@ for (const show of shows) {
   const summaries = new Map(tvmazeEpisodes.map(item => [`${item.season}-${item.number}`, cleanSummary(item.summary)]));
   const showExtraConfigs = extras.filter(extra => extra.showId === show.id);
   const belongsToSameParentExtra = item => showExtraConfigs.some(extra => extra.imdbId === show.imdbId && extra.range && item.season === extra.range.season && item.episode >= extra.range.fromEpisode);
-  const showEpisodes = [...episodes.values()]
+  let showEpisodes = [...episodes.values()]
     .filter(item => item.showImdbId === show.imdbId)
     .filter(item => !belongsToSameParentExtra(item))
     .filter(item => show.id !== 'the-simpsons' || !/^Episode #\d+\.\d+$/.test(item.title || ''))
     .map(item => ({ ...item, summary: summaries.get(`${item.season}-${item.episode}`) || '' }))
     .map(item => show.id === 'the-simpsons' && !item.summary ? { ...item, summary: simpsonsSummaryFallbacks.get(item.title) || '' } : item)
     .sort((a, b) => a.season - b.season || a.episode - b.episode);
+  const missingMain = showEpisodes.filter(item => !item.summary).map(item => item.imdbId);
+  if (missingMain.length) {
+    const imdbSummaries = await imdbPlotSummaries(missingMain);
+    showEpisodes = showEpisodes.map(item => item.summary ? item : { ...item, summary: imdbSummaries.get(item.imdbId) || '' });
+  }
 
   const showExtras = [];
   for (const extra of showExtraConfigs) {
@@ -137,7 +171,7 @@ for (const show of shows) {
         extraSummaries = new Map(items.map(item => [`${item.season}-${item.number}`, cleanSummary(item.summary)]));
       }
     }
-    const extraEpisodes = [...episodes.values()]
+    let extraEpisodes = [...episodes.values()]
       .filter(item => item.showImdbId === extra.imdbId)
       .filter(item => !extra.range || (item.season === extra.range.season && item.episode >= extra.range.fromEpisode))
       .sort((a, b) => a.season - b.season || a.episode - b.episode)
@@ -146,6 +180,11 @@ for (const show of shows) {
         summary: extra.showId === 'the-simpsons' ? traceySummaries[index] || '' : extraSummaries.get(`${episode.season}-${episode.episode}`) || '',
         ...(extra.range ? { season: 1, episode: index + 1 } : {}),
       }));
+    const missingExtra = extraEpisodes.filter(item => !item.summary).map(item => item.imdbId);
+    if (missingExtra.length) {
+      const imdbSummaries = await imdbPlotSummaries(missingExtra);
+      extraEpisodes = extraEpisodes.map(item => item.summary ? item : { ...item, summary: imdbSummaries.get(item.imdbId) || '' });
+    }
     showExtras.push({ ...extra, episodes: extraEpisodes });
   }
 
