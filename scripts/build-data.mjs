@@ -13,8 +13,15 @@ const shows = [
   { id: 'house', imdbId: 'tt0412142', tvmazeId: 118, name: 'House MD', years: '2004–2012', accent: '#70dfad' },
   { id: 'the-simpsons', imdbId: 'tt0096697', tvmazeId: 83, name: 'The Simpsons', years: '1989–', accent: '#ffd84d' },
   { id: 'once-upon-a-time', imdbId: 'tt1843230', tvmazeId: 111, name: 'Once Upon a Time', years: '2011–2018', accent: '#a9b8ff' },
+  { id: 'yu-gi-oh', imdbId: 'tt0249327', tvmazeId: 4099, name: 'Yu-Gi-Oh! Duel Monsters', years: '2000–2004', accent: '#d7a4ff' },
+  { id: 'mighty-morphin-power-rangers', imdbId: 'tt0106064', tvmazeId: 794, name: 'Mighty Morphin Power Rangers', years: '1993–1996', accent: '#ff646d' },
+  { id: 'futurama', imdbId: 'tt0149460', tvmazeId: 538, name: 'Futurama', years: '1999–', accent: '#73d8e8' },
 ];
-const extras = [{ showId: 'the-simpsons', imdbId: 'tt12294152', name: 'The Tracey Ullman Show shorts', years: '1987–1989' }];
+const extras = [
+  { showId: 'the-simpsons', imdbId: 'tt12294152', name: 'The Tracey Ullman Show shorts', years: '1987–1989' },
+  { showId: 'yu-gi-oh', imdbId: 'tt4834194', tvmazeId: 19502, name: 'Yu-Gi-Oh! “Season 0”', years: '1998' },
+  { showId: 'mighty-morphin-power-rangers', imdbId: 'tt0106064', tvmazeId: 794, name: 'Mighty Morphin Alien Rangers', years: '1996', range: { season: 3, fromEpisode: 34 } },
+];
 
 const sources = {
   episodes: 'https://datasets.imdbws.com/title.episode.tsv.gz',
@@ -50,7 +57,7 @@ const basicsFile = await download('basics', sources.basics);
 const parentIds = new Set([...shows.map(show => show.imdbId), ...extras.map(extra => extra.imdbId)]);
 const episodes = new Map();
 await rows(episodeFile, row => {
-  if (!parentIds.has(row.parentTconst) || row.seasonNumber === '\\N' || row.episodeNumber === '\\N') return;
+  if (!parentIds.has(row.parentTconst) || row.seasonNumber === '\\N' || row.episodeNumber === '\\N' || Number(row.episodeNumber) < 1) return;
   episodes.set(row.tconst, {
     imdbId: row.tconst,
     showImdbId: row.parentTconst,
@@ -110,19 +117,37 @@ for (const show of shows) {
   if (!response.ok) throw new Error(`TVmaze ${response.status} for ${show.name}`);
   const tvmazeEpisodes = await response.json();
   const summaries = new Map(tvmazeEpisodes.map(item => [`${item.season}-${item.number}`, cleanSummary(item.summary)]));
+  const showExtraConfigs = extras.filter(extra => extra.showId === show.id);
+  const belongsToSameParentExtra = item => showExtraConfigs.some(extra => extra.imdbId === show.imdbId && extra.range && item.season === extra.range.season && item.episode >= extra.range.fromEpisode);
   const showEpisodes = [...episodes.values()]
     .filter(item => item.showImdbId === show.imdbId)
+    .filter(item => !belongsToSameParentExtra(item))
     .filter(item => show.id !== 'the-simpsons' || !/^Episode #\d+\.\d+$/.test(item.title || ''))
     .map(item => ({ ...item, summary: summaries.get(`${item.season}-${item.episode}`) || '' }))
     .map(item => show.id === 'the-simpsons' && !item.summary ? { ...item, summary: simpsonsSummaryFallbacks.get(item.title) || '' } : item)
     .sort((a, b) => a.season - b.season || a.episode - b.episode);
 
-  const showExtras = extras.filter(extra => extra.showId === show.id).map(extra => ({
-    ...extra,
-    episodes: [...episodes.values()]
+  const showExtras = [];
+  for (const extra of showExtraConfigs) {
+    let extraSummaries = new Map();
+    if (extra.tvmazeId) {
+      const extraResponse = await fetch(`https://api.tvmaze.com/shows/${extra.tvmazeId}/episodes?specials=1`);
+      if (extraResponse.ok) {
+        const items = await extraResponse.json();
+        extraSummaries = new Map(items.map(item => [`${item.season}-${item.number}`, cleanSummary(item.summary)]));
+      }
+    }
+    const extraEpisodes = [...episodes.values()]
       .filter(item => item.showImdbId === extra.imdbId)
-      .sort((a, b) => a.season - b.season || a.episode - b.episode),
-  })).map(extra => ({ ...extra, episodes: extra.episodes.map((episode, index) => ({ ...episode, summary: traceySummaries[index] || '' })) }));
+      .filter(item => !extra.range || (item.season === extra.range.season && item.episode >= extra.range.fromEpisode))
+      .sort((a, b) => a.season - b.season || a.episode - b.episode)
+      .map((episode, index) => ({
+        ...episode,
+        summary: extra.showId === 'the-simpsons' ? traceySummaries[index] || '' : extraSummaries.get(`${episode.season}-${episode.episode}`) || '',
+        ...(extra.range ? { season: 1, episode: index + 1 } : {}),
+      }));
+    showExtras.push({ ...extra, episodes: extraEpisodes });
+  }
 
   const rated = showEpisodes.filter(item => Number.isFinite(item.rating));
   const average = rated.reduce((sum, item) => sum + item.rating, 0) / rated.length;

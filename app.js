@@ -1,4 +1,3 @@
-const shows = ['house', 'the-simpsons', 'once-upon-a-time'];
 const grid = document.querySelector('#series-grid');
 
 function ratingClass(value) {
@@ -10,8 +9,10 @@ function ratingClass(value) {
   return 'poor';
 }
 
-Promise.all(shows.map(id => fetch(`data/${id}.json`).then(r => r.json())))
+fetch('data/shows.json').then(response => response.json())
+  .then(shows => Promise.all(shows.map(show => fetch(`data/${show.id}.json`).then(r => r.json()))))
   .then(data => {
+    document.querySelector('#series-count').textContent = `${data.length} series`;
     grid.innerHTML = data.map((show, index) => `
       <a class="series-card" style="--accent:${show.accent}" href="show.html?id=${show.id}" aria-label="Explore ${show.name}">
         <img class="series-image" src="assets/${show.id}.jpg" alt="${show.name} artwork">

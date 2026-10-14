@@ -83,7 +83,7 @@ function render(show) {
       <p class="scroll-note">Swipe horizontally to explore every episode →</p>
       ${show.id === 'the-simpsons' ? `<p class="data-note">IMDb currently has titled entries through season 38. Placeholder entries for the already-announced seasons 39–40 are excluded. Full-length Disney+ exclusives are included in their season rows and identified in episode details; promotional shorts are not counted.</p>` : ''}
     </section>
-    ${(show.extras || []).filter(extra => extra.episodes.length).map(extra => `<section class="extras-section"><div class="matrix-tools"><div><p class="eyebrow">Before the series</p><h2>${extra.name}</h2><p class="extras-copy">The original shorts that aired from ${extra.years}, with IMDb ratings where available.</p></div></div>${matrixMarkup(extra.episodes)}</section>`).join('')}`;
+    ${(show.extras || []).filter(extra => extra.episodes.length).map(extra => `<section class="extras-section"><div class="matrix-tools"><div><p class="eyebrow">Related run · ${extra.years}</p><h2>${extra.name}</h2><p class="extras-copy">Shown separately from the main series, with IMDb ratings where available.</p></div></div>${matrixMarkup(extra.episodes)}</section>`).join('')}`;
 
   const lookup = new Map(episodeOrder.map(ep => [ep.imdbId, ep]));
   document.querySelectorAll('.rating-cell').forEach(button => button.addEventListener('click', () => openEpisode(lookup.get(button.dataset.id))));
