@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore IMDb episode ratings for House, The Simpsons, and Once Upon a Time.">
+  <title>Episode Index — Every episode, at a glance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Episode Index home">
+      <span class="brand-mark">EI</span><span>Episode Index</span>
+    </a>
+    <span class="header-note">IMDb ratings, mapped</span>
+  </header>
+
+  <main class="home-shell">
+    <section class="hero">
+      <p class="eyebrow">TV, by the numbers</p>
+      <h1>Every episode.<br><em>One honest grid.</em></h1>
+      <p class="hero-copy">Spot the golden runs, rough patches, and all-time highs across your favorite series.</p>
+    </section>
+
+    <section aria-labelledby="series-heading">
+      <div class="section-heading">
+        <h2 id="series-heading">Choose a series</h2>
+        <span>03 in the collection</span>
+      </div>
+      <div class="series-grid" id="series-grid" aria-live="polite"></div>
+    </section>
+
+    <section class="legend-block" aria-label="Rating color legend">
+      <span>Rating scale</span>
+      <div class="legend" id="legend"></div>
+    </section>
+  </main>
+
+  <footer><span>Ratings via IMDb datasets</span><span>Episode summaries via TVmaze</span></footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
