@@ -2,6 +2,7 @@ const params = new URLSearchParams(location.search);
 const id = params.get('id') || 'house';
 const main = document.querySelector('#show-main');
 const dialog = document.querySelector('#episode-dialog');
+const searchDialog = document.querySelector('#search-dialog');
 const disneyExclusives = new Set(["O C'mon All Ye Faithful", 'The Past and the Furious', 'Yellow Planet', 'Extreme Makeover: Homer Edition', 'Simpsley', 'Yellow Mirror']);
 let episodeOrder = [];
 let activeEpisodeIndex = -1;
@@ -35,6 +36,32 @@ function openEpisode(episode) {
   document.querySelector('#episode-prev').disabled = activeEpisodeIndex <= 0;
   document.querySelector('#episode-next').disabled = activeEpisodeIndex >= episodeOrder.length - 1;
   dialog.showModal();
+}
+
+function episodeCode(episode) {
+  return episode.collection
+    ? `${episode.collection} · S${episode.season} E${episode.episode}`
+    : `Season ${episode.season} · Episode ${episode.episode}`;
+}
+
+function searchEpisodes(query) {
+  const needle = query.trim().toLocaleLowerCase();
+  const results = needle
+    ? episodeOrder.filter(episode => episode.title?.toLocaleLowerCase().includes(needle))
+    : [];
+  const resultsContainer = document.querySelector('#search-results');
+  document.querySelector('#search-results-title').textContent = results.length
+    ? `${results.length} ${results.length === 1 ? 'result' : 'results'} for “${query.trim()}”`
+    : `No results for “${query.trim()}”`;
+  resultsContainer.innerHTML = results.length
+    ? results.map(episode => `<button class="search-result" data-id="${episode.imdbId}"><span>${episode.title}</span><small>${episodeCode(episode)}</small></button>`).join('')
+    : '<p class="search-empty">No episode titles matched that search.</p>';
+  resultsContainer.querySelectorAll('.search-result').forEach(button => button.addEventListener('click', () => {
+    const episode = episodeOrder.find(item => item.imdbId === button.dataset.id);
+    searchDialog.close();
+    openEpisode(episode);
+  }));
+  searchDialog.showModal();
 }
 
 function matrixMarkup(episodes, label = 'Season') {
@@ -77,7 +104,14 @@ function render(show) {
     <section class="matrix-section">
       <div class="matrix-tools">
         <h2>Episode map</h2>
-        <div class="compact-legend"><i class="poor"></i><span>Lower</span><span class="gradient"></span><span>Higher</span><i class="elite"></i></div>
+        <div class="matrix-actions">
+          <form class="episode-search" role="search">
+            <label class="sr-only" for="episode-search-input">Search episode titles</label>
+            <input id="episode-search-input" type="search" placeholder="Search episode name" autocomplete="off" required>
+            <button type="submit" aria-label="Search episodes">Search</button>
+          </form>
+          <div class="compact-legend"><i class="poor"></i><span>Lower</span><span class="gradient"></span><span>Higher</span><i class="elite"></i></div>
+        </div>
       </div>
       ${matrixMarkup(show.episodes)}
       <p class="scroll-note">Swipe horizontally to explore every episode →</p>
@@ -88,6 +122,10 @@ function render(show) {
   const lookup = new Map(episodeOrder.map(ep => [ep.imdbId, ep]));
   document.querySelectorAll('.rating-cell').forEach(button => button.addEventListener('click', () => openEpisode(lookup.get(button.dataset.id))));
   document.querySelector('.highlight-best').addEventListener('click', event => openEpisode(lookup.get(event.currentTarget.dataset.id)));
+  document.querySelector('.episode-search').addEventListener('submit', event => {
+    event.preventDefault();
+    searchEpisodes(document.querySelector('#episode-search-input').value);
+  });
 }
 
 fetch(`data/${id}.json`)
@@ -104,3 +142,5 @@ document.addEventListener('keydown', event => {
   if (event.key === 'ArrowRight' && activeEpisodeIndex < episodeOrder.length - 1) openEpisode(episodeOrder[activeEpisodeIndex + 1]);
 });
 dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+document.querySelector('.search-dialog-close').addEventListener('click', () => searchDialog.close());
+searchDialog.addEventListener('click', event => { if (event.target === searchDialog) searchDialog.close(); });
