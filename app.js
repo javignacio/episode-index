@@ -1,4 +1,5 @@
 const grid = document.querySelector('#series-grid');
+const dataVersion = '2026-10-15-dragon-ball';
 
 function ratingClass(value) {
   if (value >= 9) return 'elite';
@@ -9,8 +10,8 @@ function ratingClass(value) {
   return 'poor';
 }
 
-fetch('data/shows.json').then(response => response.json())
-  .then(shows => Promise.all(shows.map(show => fetch(`data/${show.id}.json`).then(r => r.json()))))
+fetch(`data/shows.json?v=${dataVersion}`).then(response => response.json())
+  .then(shows => Promise.all(shows.map(show => fetch(`data/${show.id}.json?v=${dataVersion}`).then(r => r.json()))))
   .then(data => {
     document.querySelector('#series-count').textContent = `${data.length} series`;
     grid.innerHTML = data.map((show, index) => `

@@ -1,5 +1,6 @@
 const params = new URLSearchParams(location.search);
 const id = params.get('id') || 'house';
+const dataVersion = '2026-10-15-dragon-ball';
 const main = document.querySelector('#show-main');
 const dialog = document.querySelector('#episode-dialog');
 const searchDialog = document.querySelector('#search-dialog');
@@ -128,7 +129,7 @@ function render(show) {
   });
 }
 
-fetch(`data/${id}.json`)
+fetch(`data/${id}.json?v=${dataVersion}`)
   .then(response => { if (!response.ok) throw new Error(); return response.json(); })
   .then(render)
   .catch(() => main.innerHTML = '<div class="loading">Series not found. <a href="index.html">Return home</a></div>');

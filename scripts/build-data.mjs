@@ -16,6 +16,10 @@ const shows = [
   { id: 'yu-gi-oh', imdbId: 'tt0249327', tvmazeId: 4099, name: 'Yu-Gi-Oh! Duel Monsters', years: '2000–2004', accent: '#d7a4ff' },
   { id: 'mighty-morphin-power-rangers', imdbId: 'tt0106064', tvmazeId: 794, name: 'Mighty Morphin Power Rangers', years: '1993–1996', accent: '#ff646d' },
   { id: 'futurama', imdbId: 'tt0149460', tvmazeId: 538, name: 'Futurama', years: '1999–', accent: '#73d8e8' },
+  { id: 'dragon-ball', imdbId: 'tt0088509', tvmazeId: 2102, name: 'Dragon Ball', years: '1986–1989', accent: '#f5a623', absoluteTvmaze: true },
+  { id: 'dragon-ball-z', imdbId: 'tt0121220', tvmazeId: 2103, name: 'Dragon Ball Z', years: '1989–1996', accent: '#f3d34a', absoluteTvmaze: true },
+  { id: 'dragon-ball-gt', imdbId: 'tt0139774', tvmazeId: 2104, name: 'Dragon Ball GT', years: '1996–1997', accent: '#e85d50', absoluteTvmaze: true },
+  { id: 'dragon-ball-super', imdbId: 'tt4644488', tvmazeId: 2368, name: 'Dragon Ball Super', years: '2015–2018', accent: '#62b4ff', absoluteTvmaze: true },
 ];
 const extras = [
   { showId: 'the-simpsons', imdbId: 'tt12294152', name: 'The Tracey Ullman Show shorts', years: '1987–1989' },
@@ -81,7 +85,7 @@ await rows(basicsFile, row => {
 });
 
 function cleanSummary(value = '') {
-  return (value || '').replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&').trim();
+  return (value || '').replace(/<[^>]+>/g, ' ').replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 }
 
 async function traceyUllmanSummaries() {
@@ -155,6 +159,16 @@ for (const show of shows) {
     .map(item => ({ ...item, summary: summaries.get(`${item.season}-${item.episode}`) || '' }))
     .map(item => show.id === 'the-simpsons' && !item.summary ? { ...item, summary: simpsonsSummaryFallbacks.get(item.title) || '' } : item)
     .sort((a, b) => a.season - b.season || a.episode - b.episode);
+  if (show.absoluteTvmaze) {
+    const chronologicalEpisodes = tvmazeEpisodes.filter(item => Number.isFinite(item.number));
+    showEpisodes = showEpisodes.map((item, index) => ({
+      ...item,
+      season: chronologicalEpisodes[index]?.season || item.season,
+      episode: chronologicalEpisodes[index]?.number || item.episode,
+      title: chronologicalEpisodes[index]?.name || item.title,
+      summary: cleanSummary(chronologicalEpisodes[index]?.summary) || item.summary,
+    }));
+  }
   const missingMain = showEpisodes.filter(item => !item.summary).map(item => item.imdbId);
   if (missingMain.length) {
     const imdbSummaries = await imdbPlotSummaries(missingMain);
