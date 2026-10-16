@@ -18,7 +18,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: Manrop
 a { color: inherit; }
 .site-header { height: 76px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 clamp(20px, 5vw, 72px); }
 .brand { display: flex; gap: 12px; align-items: center; text-decoration: none; font-weight: 650; letter-spacing: -.02em; }
-.brand-mark { display: grid; place-items: center; width: 34px; height: 34px; background: var(--text); color: var(--bg); font: 500 13px DM Mono, monospace; border-radius: 4px; }
+.brand-mark { display: block; width: 34px; height: 34px; object-fit: cover; border-radius: 4px; }
 .header-note, .back-link { color: var(--muted); font: 400 11px DM Mono, monospace; letter-spacing: .03em; }
 .back-link { text-decoration: none; }
 .header-actions { display: flex; align-items: center; gap: 24px; }
