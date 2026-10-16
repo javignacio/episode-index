@@ -20,7 +20,7 @@ const shows = [
   { id: 'dragon-ball-z', imdbId: 'tt0121220', tvmazeId: 2103, name: 'Dragon Ball Z', years: '1989–1996', accent: '#f3d34a', absoluteTvmaze: true },
   { id: 'dragon-ball-gt', imdbId: 'tt0139774', tvmazeId: 2104, name: 'Dragon Ball GT', years: '1996–1997', accent: '#e85d50', absoluteTvmaze: true },
   { id: 'dragon-ball-super', imdbId: 'tt4644488', tvmazeId: 2368, name: 'Dragon Ball Super', years: '2015–2018', accent: '#62b4ff', absoluteTvmaze: true },
-  { id: 'pokemon-indigo-league', imdbId: 'tt0168366', tvmazeId: 590, name: 'Pokémon: Indigo League', years: '1997–1999', accent: '#ffcb05', seasonFilter: 1 },
+  { id: 'pokemon-indigo-league', imdbId: 'tt0168366', tvmazeId: 590, name: 'Pokémon: Indigo League', years: '1997–1999', accent: '#ffcb05', seasonFilter: 1, useTvmazeTitles: true },
 ];
 const extras = [
   { showId: 'the-simpsons', imdbId: 'tt12294152', name: 'The Tracey Ullman Show shorts', years: '1987–1989' },
@@ -191,6 +191,15 @@ for (const show of shows) {
     .map(item => ({ ...item, summary: summaries.get(`${item.season}-${item.episode}`) || '' }))
     .map(item => show.id === 'the-simpsons' && !item.summary ? { ...item, summary: simpsonsSummaryFallbacks.get(item.title) || '' } : item)
     .sort((a, b) => a.season - b.season || a.episode - b.episode);
+  if (show.useTvmazeTitles) {
+    const tvmazeByNumber = new Map(relevantTvmazeEpisodes
+      .filter(item => Number.isFinite(item.number))
+      .map(item => [`${item.season}-${item.number}`, item]));
+    showEpisodes = showEpisodes.map(item => ({
+      ...item,
+      title: tvmazeByNumber.get(`${item.season}-${item.episode}`)?.name || item.title,
+    }));
+  }
   if (show.absoluteTvmaze) {
     const chronologicalEpisodes = tvmazeEpisodes.filter(item => Number.isFinite(item.number));
     showEpisodes = showEpisodes.map((item, index) => ({
