@@ -1,5 +1,5 @@
 const grid = document.querySelector('#series-grid');
-const dataVersion = '2026-10-15-dragon-ball';
+const dataVersion = '2026-10-15-pokemon-zeo-movies';
 
 function ratingClass(value) {
   if (value >= 9) return 'elite';
@@ -13,7 +13,7 @@ function ratingClass(value) {
 fetch(`data/shows.json?v=${dataVersion}`).then(response => response.json())
   .then(shows => Promise.all(shows.map(show => fetch(`data/${show.id}.json?v=${dataVersion}`).then(r => r.json()))))
   .then(data => {
-    document.querySelector('#series-count').textContent = `${data.length} series`;
+    document.querySelector('#series-count').textContent = `${data.length} collections`;
     grid.innerHTML = data.map((show, index) => `
       <a class="series-card" style="--accent:${show.accent}" href="show.html?id=${show.id}" aria-label="Explore ${show.name}">
         <img class="series-image" src="assets/${show.id}.jpg" alt="${show.name} artwork">
@@ -26,8 +26,8 @@ fetch(`data/shows.json?v=${dataVersion}`).then(response => response.json())
           <span class="arrow">↗</span>
         </div>
         <div class="series-stats">
-          <span><b>${show.seasonCount}</b> seasons</span>
-          <span><b>${show.episodeCount}</b> episodes</span>
+          <span><b>${show.seasonCount}</b> ${show.type === 'movies' ? 'sagas' : show.type === 'franchise' ? 'runs' : 'seasons'}</span>
+          <span><b>${show.episodeCount}</b> ${show.type === 'movies' ? 'movies' : 'episodes'}</span>
           <span><b>${show.average}</b> avg.</span>
         </div>
       </a>`).join('');

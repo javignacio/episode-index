@@ -14,17 +14,31 @@ const shows = [
   { id: 'the-simpsons', imdbId: 'tt0096697', tvmazeId: 83, name: 'The Simpsons', years: '1989–', accent: '#ffd84d' },
   { id: 'once-upon-a-time', imdbId: 'tt1843230', tvmazeId: 111, name: 'Once Upon a Time', years: '2011–2018', accent: '#a9b8ff' },
   { id: 'yu-gi-oh', imdbId: 'tt0249327', tvmazeId: 4099, name: 'Yu-Gi-Oh! Duel Monsters', years: '2000–2004', accent: '#d7a4ff' },
-  { id: 'mighty-morphin-power-rangers', imdbId: 'tt0106064', tvmazeId: 794, name: 'Mighty Morphin Power Rangers', years: '1993–1996', accent: '#ff646d' },
+  { id: 'mighty-morphin-power-rangers', imdbId: 'tt0106064', tvmazeId: 794, name: 'Power Rangers', years: '1993–1996', accent: '#ff646d', type: 'franchise' },
   { id: 'futurama', imdbId: 'tt0149460', tvmazeId: 538, name: 'Futurama', years: '1999–', accent: '#73d8e8' },
   { id: 'dragon-ball', imdbId: 'tt0088509', tvmazeId: 2102, name: 'Dragon Ball', years: '1986–1989', accent: '#f5a623', absoluteTvmaze: true },
   { id: 'dragon-ball-z', imdbId: 'tt0121220', tvmazeId: 2103, name: 'Dragon Ball Z', years: '1989–1996', accent: '#f3d34a', absoluteTvmaze: true },
   { id: 'dragon-ball-gt', imdbId: 'tt0139774', tvmazeId: 2104, name: 'Dragon Ball GT', years: '1996–1997', accent: '#e85d50', absoluteTvmaze: true },
   { id: 'dragon-ball-super', imdbId: 'tt4644488', tvmazeId: 2368, name: 'Dragon Ball Super', years: '2015–2018', accent: '#62b4ff', absoluteTvmaze: true },
+  { id: 'pokemon-indigo-league', imdbId: 'tt0168366', tvmazeId: 590, name: 'Pokémon: Indigo League', years: '1997–1999', accent: '#ffcb05', seasonFilter: 1 },
 ];
 const extras = [
   { showId: 'the-simpsons', imdbId: 'tt12294152', name: 'The Tracey Ullman Show shorts', years: '1987–1989' },
   { showId: 'yu-gi-oh', imdbId: 'tt4834194', tvmazeId: 19502, name: 'Yu-Gi-Oh! “Season 0”', years: '1998' },
   { showId: 'mighty-morphin-power-rangers', imdbId: 'tt0106064', tvmazeId: 794, name: 'Mighty Morphin Alien Rangers', years: '1996', range: { season: 3, fromEpisode: 34 } },
+  { showId: 'mighty-morphin-power-rangers', imdbId: 'tt0115319', tvmazeId: 794, tvmazeSeason: 4, name: 'Power Rangers Zeo', years: '1996' },
+];
+const movieCollections = [
+  { saga: 'Dragon Ball', movies: [
+    'tt0142251', 'tt0142249', 'tt0142248', 'tt0142250',
+  ] },
+  { saga: 'Dragon Ball Z', movies: [
+    'tt0142235', 'tt0142240', 'tt0142233', 'tt0142244', 'tt1125254', 'tt0142237', 'tt0142241',
+    'tt0142242', 'tt0142238', 'tt0142239', 'tt0142234', 'tt0142236', 'tt0142243', 'tt2263944', 'tt3819668',
+  ] },
+  { saga: 'Dragon Ball Super', movies: [
+    'tt7961060', 'tt14614892',
+  ] },
 ];
 
 const sources = {
@@ -60,6 +74,8 @@ const basicsFile = await download('basics', sources.basics);
 
 const parentIds = new Set([...shows.map(show => show.imdbId), ...extras.map(extra => extra.imdbId)]);
 const episodes = new Map();
+const movieIds = new Set(movieCollections.flatMap(collection => collection.movies));
+const movies = new Map([...movieIds].map(imdbId => [imdbId, { imdbId }]));
 await rows(episodeFile, row => {
   if (!parentIds.has(row.parentTconst) || row.seasonNumber === '\\N' || row.episodeNumber === '\\N' || Number(row.episodeNumber) < 1) return;
   episodes.set(row.tconst, {
@@ -72,16 +88,28 @@ await rows(episodeFile, row => {
 
 await rows(ratingsFile, row => {
   const episode = episodes.get(row.tconst);
-  if (!episode) return;
-  episode.rating = Number(row.averageRating);
-  episode.votes = Number(row.numVotes);
+  const movie = movies.get(row.tconst);
+  if (episode) {
+    episode.rating = Number(row.averageRating);
+    episode.votes = Number(row.numVotes);
+  }
+  if (movie) {
+    movie.rating = Number(row.averageRating);
+    movie.votes = Number(row.numVotes);
+  }
 });
 
 await rows(basicsFile, row => {
   const episode = episodes.get(row.tconst);
-  if (!episode) return;
-  episode.title = row.primaryTitle;
-  episode.year = row.startYear === '\\N' ? null : Number(row.startYear);
+  const movie = movies.get(row.tconst);
+  if (episode) {
+    episode.title = row.primaryTitle;
+    episode.year = row.startYear === '\\N' ? null : Number(row.startYear);
+  }
+  if (movie) {
+    movie.title = row.primaryTitle;
+    movie.year = row.startYear === '\\N' ? null : Number(row.startYear);
+  }
 });
 
 function cleanSummary(value = '') {
@@ -149,11 +177,15 @@ for (const show of shows) {
   const response = await fetch(`https://api.tvmaze.com/shows/${show.tvmazeId}/episodes?specials=1`);
   if (!response.ok) throw new Error(`TVmaze ${response.status} for ${show.name}`);
   const tvmazeEpisodes = await response.json();
-  const summaries = new Map(tvmazeEpisodes.map(item => [`${item.season}-${item.number}`, cleanSummary(item.summary)]));
+  const relevantTvmazeEpisodes = show.tvmazeSeason
+    ? tvmazeEpisodes.filter(item => item.season === show.tvmazeSeason).map(item => ({ ...item, season: 1 }))
+    : tvmazeEpisodes;
+  const summaries = new Map(relevantTvmazeEpisodes.map(item => [`${item.season}-${item.number}`, cleanSummary(item.summary)]));
   const showExtraConfigs = extras.filter(extra => extra.showId === show.id);
   const belongsToSameParentExtra = item => showExtraConfigs.some(extra => extra.imdbId === show.imdbId && extra.range && item.season === extra.range.season && item.episode >= extra.range.fromEpisode);
   let showEpisodes = [...episodes.values()]
     .filter(item => item.showImdbId === show.imdbId)
+    .filter(item => !show.seasonFilter || item.season === show.seasonFilter)
     .filter(item => !belongsToSameParentExtra(item))
     .filter(item => show.id !== 'the-simpsons' || !/^Episode #\d+\.\d+$/.test(item.title || ''))
     .map(item => ({ ...item, summary: summaries.get(`${item.season}-${item.episode}`) || '' }))
@@ -182,7 +214,10 @@ for (const show of shows) {
       const extraResponse = await fetch(`https://api.tvmaze.com/shows/${extra.tvmazeId}/episodes?specials=1`);
       if (extraResponse.ok) {
         const items = await extraResponse.json();
-        extraSummaries = new Map(items.map(item => [`${item.season}-${item.number}`, cleanSummary(item.summary)]));
+        const relevantItems = extra.tvmazeSeason
+          ? items.filter(item => item.season === extra.tvmazeSeason).map(item => ({ ...item, season: 1 }))
+          : items;
+        extraSummaries = new Map(relevantItems.map(item => [`${item.season}-${item.number}`, cleanSummary(item.summary)]));
       }
     }
     let extraEpisodes = [...episodes.values()]
@@ -202,20 +237,58 @@ for (const show of shows) {
     showExtras.push({ ...extra, episodes: extraEpisodes });
   }
 
-  const rated = showEpisodes.filter(item => Number.isFinite(item.rating));
+  const metricEpisodes = show.type === 'franchise'
+    ? [...showEpisodes, ...showExtras.flatMap(extra => extra.episodes.map(episode => ({ ...episode, collection: extra.name })))]
+    : showEpisodes;
+  const rated = metricEpisodes.filter(item => Number.isFinite(item.rating));
   const average = rated.reduce((sum, item) => sum + item.rating, 0) / rated.length;
   const best = rated.reduce((a, b) => a.rating >= b.rating ? a : b);
   writeFileSync(new URL(`${show.id}.json`, dataDir), JSON.stringify({
     ...show,
     average: Number(average.toFixed(1)),
-    episodeCount: showEpisodes.length,
-    seasonCount: Math.max(...showEpisodes.map(item => item.season)),
-    best: { title: best.title, rating: best.rating, season: best.season, episode: best.episode },
+    episodeCount: metricEpisodes.length,
+    seasonCount: show.type === 'franchise' ? 3 : Math.max(...showEpisodes.map(item => item.season)),
+    best: { imdbId: best.imdbId, title: best.title, rating: best.rating, season: best.season, episode: best.episode, collection: best.collection },
     episodes: showEpisodes,
     extras: showExtras,
   }));
   console.log(`${show.name}: ${showEpisodes.length} episodes`);
 }
 
-writeFileSync(new URL('shows.json', dataDir), JSON.stringify(shows));
+const movieSummaries = await imdbPlotSummaries([...movieIds]);
+const movieSagas = movieCollections.map((collection, seasonIndex) => ({
+  saga: collection.saga,
+  movies: collection.movies.map((imdbId, movieIndex) => ({
+    ...movies.get(imdbId),
+    type: 'movie',
+    collection: collection.saga,
+    season: seasonIndex + 1,
+    episode: movieIndex + 1,
+    summary: movieSummaries.get(imdbId) || '',
+  })),
+}));
+const allMovies = movieSagas.flatMap(collection => collection.movies);
+const ratedMovies = allMovies.filter(item => Number.isFinite(item.rating));
+const bestMovie = ratedMovies.reduce((a, b) => a.rating >= b.rating ? a : b);
+const movieShow = {
+  id: 'dragon-ball-movies',
+  name: 'Dragon Ball Movies',
+  years: '1986–2022',
+  accent: '#f5a623',
+  type: 'movies',
+  average: Number((ratedMovies.reduce((sum, item) => sum + item.rating, 0) / ratedMovies.length).toFixed(1)),
+  seasonCount: movieSagas.length,
+  episodeCount: allMovies.length,
+  best: { imdbId: bestMovie.imdbId, title: bestMovie.title, rating: bestMovie.rating, season: bestMovie.season, episode: bestMovie.episode, collection: bestMovie.collection },
+  episodes: allMovies,
+  movieSagas,
+  extras: [],
+};
+writeFileSync(new URL('dragon-ball-movies.json', dataDir), JSON.stringify(movieShow));
+const movieCatalogEntry = { id: movieShow.id, name: movieShow.name, years: movieShow.years, accent: movieShow.accent, type: movieShow.type };
+const movieInsertIndex = shows.findIndex(show => show.id === 'dragon-ball-super') + 1;
+writeFileSync(new URL('shows.json', dataDir), JSON.stringify([
+  ...shows.slice(0, movieInsertIndex), movieCatalogEntry, ...shows.slice(movieInsertIndex),
+]));
+console.log(`Dragon Ball Movies: ${allMovies.length} movies across ${movieSagas.length} sagas`);
 console.log('Done.');

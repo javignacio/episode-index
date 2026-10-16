@@ -1,6 +1,6 @@
 const params = new URLSearchParams(location.search);
 const id = params.get('id') || 'house';
-const dataVersion = '2026-10-15-dragon-ball';
+const dataVersion = '2026-10-15-pokemon-zeo-movies';
 const main = document.querySelector('#show-main');
 const dialog = document.querySelector('#episode-dialog');
 const searchDialog = document.querySelector('#search-dialog');
@@ -28,7 +28,7 @@ function openEpisode(episode) {
   rating.className = `dialog-rating ${ratingClass(episode.rating)}`;
   rating.textContent = episode.rating?.toFixed(1) ?? '—';
   document.querySelector('#dialog-code').textContent = episode.collection
-    ? `${episode.collection} · S${episode.season} E${episode.episode}`
+    ? episode.type === 'movie' ? `${episode.collection} movie · ${episode.year}` : `${episode.collection} · S${episode.season} E${episode.episode}`
     : `Season ${episode.season} · Episode ${episode.episode}`;
   document.querySelector('#dialog-title').textContent = episode.title || 'Untitled episode';
   document.querySelector('#dialog-summary').textContent = episode.summary || 'A quick summary is not available for this episode yet.';
@@ -41,8 +41,20 @@ function openEpisode(episode) {
 
 function episodeCode(episode) {
   return episode.collection
-    ? `${episode.collection} · S${episode.season} E${episode.episode}`
+    ? episode.type === 'movie' ? `${episode.collection} movie · ${episode.year}` : `${episode.collection} · S${episode.season} E${episode.episode}`
     : `Season ${episode.season} · Episode ${episode.episode}`;
+}
+
+function sagaMatrixMarkup(sagas) {
+  const maxMovies = Math.max(...sagas.map(saga => saga.movies.length));
+  return `<div class="matrix-scroll"><div class="rating-matrix saga-matrix" style="--columns:${maxMovies}">
+    <div class="matrix-corner">Saga</div>
+    ${Array.from({ length: maxMovies }, (_, i) => `<div class="episode-label">M${i + 1}</div>`).join('')}
+    ${sagas.map(saga => `<div class="season-label saga-label">${saga.saga}</div>` + Array.from({ length: maxMovies }, (_, i) => {
+      const movie = saga.movies[i];
+      return movie ? `<button class="rating-cell ${ratingClass(movie.rating)}" data-id="${movie.imdbId}" aria-label="${movie.title}, ${movie.year}, rated ${movie.rating ?? 'unrated'}">${movie.rating?.toFixed(1) ?? '—'}</button>` : '<span class="empty-cell"></span>';
+    }).join('')).join('')}
+  </div></div>`;
 }
 
 function searchEpisodes(query) {
@@ -86,36 +98,38 @@ function matrixMarkup(episodes, label = 'Season') {
 }
 
 function render(show) {
-  document.title = `${show.name} — TV Episode Ratings`;
+  document.title = `${show.name} — ${show.type === 'movies' ? 'Movie' : 'Episode'} Ratings`;
   const extraEpisodes = (show.extras || []).flatMap(extra => extra.episodes.map(ep => ({...ep, collection: extra.name})));
   episodeOrder = [...show.episodes, ...extraEpisodes];
+  const isMovies = show.type === 'movies';
+  const isFranchise = show.type === 'franchise';
 
   main.innerHTML = `
     <section class="show-hero" style="--accent:${show.accent}">
       <div class="show-identity">
         <img src="assets/${show.id}.jpg" alt="${show.name} artwork">
-        <div><p class="eyebrow">${show.years} · ${show.seasonCount} seasons</p>
+        <div><p class="eyebrow">${show.years} · ${show.seasonCount} ${isMovies ? 'sagas' : isFranchise ? 'runs' : 'seasons'}</p>
         <h1>${show.name}</h1></div>
       </div>
       <div class="show-highlights">
-        <div><span>Series average</span><small aria-hidden="true">&nbsp;</small><b>${show.average}</b></div>
-        <button class="highlight-best" data-id="${show.episodes.find(ep => ep.season === show.best.season && ep.episode === show.best.episode)?.imdbId}"><span>Highest rated</span><small>S${show.best.season} E${show.best.episode} · View episode</small><b>${show.best.rating}</b></button>
+        <div><span>${isMovies ? 'Movie' : 'Series'} average</span><small aria-hidden="true">&nbsp;</small><b>${show.average}</b></div>
+        <button class="highlight-best" data-id="${show.best.imdbId || show.episodes.find(ep => ep.season === show.best.season && ep.episode === show.best.episode)?.imdbId}"><span>Highest rated</span><small>${isMovies ? `${show.best.collection} · View movie` : show.best.collection ? `${show.best.collection} · View episode` : `S${show.best.season} E${show.best.episode} · View episode`}</small><b>${show.best.rating}</b></button>
       </div>
     </section>
     <section class="matrix-section">
       <div class="matrix-tools">
-        <h2>Episode map</h2>
+        <h2>${isMovies ? 'Movie map' : isFranchise ? 'Mighty Morphin Power Rangers' : 'Episode map'}</h2>
         <div class="matrix-actions">
           <form class="episode-search" role="search">
-            <label class="sr-only" for="episode-search-input">Search episode titles</label>
-            <input id="episode-search-input" type="search" placeholder="Search episode name" autocomplete="off" required>
-            <button type="submit" aria-label="Search episodes">Search</button>
+            <label class="sr-only" for="episode-search-input">Search ${isMovies ? 'movie' : 'episode'} titles</label>
+            <input id="episode-search-input" type="search" placeholder="Search ${isMovies ? 'movie' : 'episode'} name" autocomplete="off" required>
+            <button type="submit" aria-label="Search ${isMovies ? 'movies' : 'episodes'}">Search</button>
           </form>
           <div class="compact-legend"><i class="poor"></i><span>Lower</span><span class="gradient"></span><span>Higher</span><i class="elite"></i></div>
         </div>
       </div>
-      ${matrixMarkup(show.episodes)}
-      <p class="scroll-note">Swipe horizontally to explore every episode →</p>
+      ${isMovies ? sagaMatrixMarkup(show.movieSagas) : matrixMarkup(show.episodes)}
+      <p class="scroll-note">Swipe horizontally to explore every ${isMovies ? 'movie' : 'episode'} →</p>
       ${show.id === 'the-simpsons' ? `<p class="data-note">IMDb currently has titled entries through season 38. Placeholder entries for the already-announced seasons 39–40 are excluded. Full-length Disney+ exclusives are included in their season rows and identified in episode details; promotional shorts are not counted.</p>` : ''}
     </section>
     ${(show.extras || []).filter(extra => extra.episodes.length).map(extra => `<section class="extras-section"><div class="matrix-tools"><div><p class="eyebrow">Related run · ${extra.years}</p><h2>${extra.name}</h2><p class="extras-copy">Shown separately from the main series, with IMDb ratings where available.</p></div></div>${matrixMarkup(extra.episodes)}</section>`).join('')}`;
